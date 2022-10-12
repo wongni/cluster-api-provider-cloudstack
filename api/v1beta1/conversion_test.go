@@ -75,4 +75,83 @@ var _ = Describe("Conversion", func() {
 			Ω(failureDomains).Should(Equal(expectedResult))
 		})
 	})
+
+	Context("v1beta2 to v1beta1 function", func() {
+		It("Converts v1beta2 cluster spec to v1beta1 zone based cluster spec", func() {
+			csCluster := &v1beta2.CloudStackCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster1",
+					Namespace: "namespace1",
+				},
+				Spec: v1beta2.CloudStackClusterSpec{
+					FailureDomains: []v1beta2.CloudStackFailureDomainSpec{
+						{
+							Name: "76472a84-d23f-4e97-b154-ee1b975ed936",
+							Zone: v1beta2.CloudStackZoneSpec{
+								ID:      "76472a84-d23f-4e97-b154-ee1b975ed936",
+								Network: v1beta2.Network{Name: "network1"},
+							},
+							Account: "account1",
+							Domain:  "domain1",
+							ACSEndpoint: corev1.SecretReference{
+								Name:      "global",
+								Namespace: "namespace1",
+							},
+						},
+					},
+					ControlPlaneEndpoint: capiv1.APIEndpoint{
+						Host: "endpoint1",
+						Port: 443,
+					},
+				},
+				Status: v1beta2.CloudStackClusterStatus{},
+			}
+			converted := &v1beta1.CloudStackCluster{}
+			err := v1beta1.Convert_v1beta2_CloudStackCluster_To_v1beta1_CloudStackCluster(csCluster, converted, nil)
+			expectedResult := &v1beta1.CloudStackCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster1",
+					Namespace: "namespace1",
+				},
+				Spec: v1beta1.CloudStackClusterSpec{
+					Zones: []v1beta1.Zone{
+						{
+							ID: "76472a84-d23f-4e97-b154-ee1b975ed936",
+							Network: v1beta1.Network{
+								Name: "network1",
+							},
+						},
+					},
+					ControlPlaneEndpoint: capiv1.APIEndpoint{
+						Host: "endpoint1",
+						Port: 443,
+					},
+					Account: "account1",
+					Domain:  "domain1",
+				},
+				Status: v1beta1.CloudStackClusterStatus{},
+			}
+
+			Ω(err).ShouldNot(HaveOccurred())
+			Ω(converted).Should(Equal(expectedResult))
+		})
+
+		It("Returns error when len(failureDomains) < 1", func() {
+			csCluster := &v1beta2.CloudStackCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster1",
+					Namespace: "namespace1",
+				},
+				Spec: v1beta2.CloudStackClusterSpec{
+					ControlPlaneEndpoint: capiv1.APIEndpoint{
+						Host: "endpoint1",
+						Port: 443,
+					},
+				},
+				Status: v1beta2.CloudStackClusterStatus{},
+			}
+			err := v1beta1.Convert_v1beta2_CloudStackCluster_To_v1beta1_CloudStackCluster(csCluster, nil, nil)
+			Ω(err).Should(HaveOccurred())
+		})
+	})
 })
